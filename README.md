@@ -1,5 +1,9 @@
 ## K-Means Clustering with GPU and CPU Implementations
 
+![CUDA](https://img.shields.io/badge/CUDA-green?logo=nvidia)
+![C++](https://img.shields.io/badge/language-C++-blue)
+![GPU](https://img.shields.io/badge/GPU-Supported-orange)
+
 This project implements the k-means clustering algorithm using both CPU and GPU. The goal is to explore the performance differences between sequential (CPU) and parallel (GPU) approaches. The implementation supports configurable dimensions, cluster counts, and iterations, with the GPU implementation leveraging CUDA for parallel computation.
 
 ---
