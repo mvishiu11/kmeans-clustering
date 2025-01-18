@@ -13,7 +13,7 @@ mkdir -p $DATA_DIR $OUTPUT_DIR
 # Generate data
 echo "Generating input data..."
 GEN_START=$(date +%s%N | cut -b1-13)
-$BIN_DIR/generate_data $DATA_DIR/input.txt 100000 3
+$BIN_DIR/generate_data $DATA_DIR/input.txt 1000000 3
 GEN_END=$(date +%s%N | cut -b1-13)
 echo "Data generation completed in $(($GEN_END - $GEN_START)) ms."
 

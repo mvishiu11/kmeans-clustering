@@ -10,6 +10,39 @@
 using namespace std;
 
 /**
+ * @brief Macro to check for CUDA errors and report them.
+ *
+ * This macro checks the return value of a CUDA API call or kernel launch.
+ * If the call fails, it prints an error message and exits the program.
+ */
+#define CUDA_CHECK_ERROR(call)                                                  \
+    {                                                                           \
+        cudaError_t err = call;                                                \
+        if (err != cudaSuccess) {                                              \
+            cerr << "CUDA Error: " << cudaGetErrorString(err)                  \
+                 << " in " << __FILE__ << " at line " << __LINE__ << endl;  \
+            exit(EXIT_FAILURE);                                                \
+        }                                                                      \
+    }
+
+/**
+* @brief Macro to check for CUDA errors after a kernel launch.
+*
+* This macro checks for errors after a kernel launch by checking the return
+* value of cudaGetLastError. If an error is detected, it prints an error
+* message and exits the program.
+*/
+#define CUDA_CHECK_KERNEL()                                                     \
+    {                                                                           \
+        cudaError_t err = cudaGetLastError();                                   \
+        if (err != cudaSuccess) {                                               \
+            cerr << "CUDA Error: " << cudaGetErrorString(err)                   \
+                 << " in " << __FILE__ << " at line " << __LINE__ << endl;   \
+            exit(EXIT_FAILURE);                                                 \
+        }                                                                       \
+    }
+
+/**
  * @brief CUDA kernel template to assign points to the nearest cluster.
  *
  * This kernel is templated on the dimensionality of the points. It computes the
@@ -178,35 +211,39 @@ int main(int argc, char** argv) {
     int* d_cluster_assignments;
     int* d_cluster_sizes;
 
-    cudaMalloc(&d_points, N * n * sizeof(float));
-    cudaMalloc(&d_centroids, k * n * sizeof(float));
-    cudaMalloc(&d_cluster_assignments, N * sizeof(int));
-    cudaMalloc(&d_cluster_sizes, k * sizeof(int));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_points, N * n * sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_centroids, k * n * sizeof(float)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_cluster_assignments, N * sizeof(int)));
+    CUDA_CHECK_ERROR(cudaMalloc(&d_cluster_sizes, k * sizeof(int)));
 
-    cudaMemcpy(d_points, points.data(), N * n * sizeof(float), cudaMemcpyHostToDevice);
+    CUDA_CHECK_ERROR(cudaMemcpy(d_points, points.data(), N * n * sizeof(float), cudaMemcpyHostToDevice));
 
     // Iterative k-means computation
     for (int iter = 0; iter < max_iters; ++iter) {
-        cudaMemcpy(d_centroids, centroids.data(), k * n * sizeof(float), cudaMemcpyHostToDevice);
+        CUDA_CHECK_ERROR(cudaMemcpy(d_centroids, centroids.data(), k * n * sizeof(float), cudaMemcpyHostToDevice));
 
         int threads = 1024;
         int blocks = (N + threads - 1) / threads;
         if (n == 2) {
             assign_clusters_template<2><<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, k);
+            CUDA_CHECK_KERNEL();
         } else if (n == 3) {
             assign_clusters_template<3><<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, k);
+            CUDA_CHECK_KERNEL();
         } else {
             assign_clusters_fallback<<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, n, k);
+            CUDA_CHECK_KERNEL();
         }        
 
-        cudaMemset(d_centroids, 0, k * n * sizeof(float));
-        cudaMemset(d_cluster_sizes, 0, k * sizeof(int));
+        CUDA_CHECK_ERROR(cudaMemset(d_centroids, 0, k * n * sizeof(float)));
+        CUDA_CHECK_ERROR(cudaMemset(d_cluster_sizes, 0, k * sizeof(int)));
         compute_centroids<<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, d_cluster_sizes, N, n, k);
+        CUDA_CHECK_KERNEL();
 
         vector<float> new_centroids(k * n, 0.0f);
         vector<int> cluster_sizes(k, 0);
-        cudaMemcpy(new_centroids.data(), d_centroids, k * n * sizeof(float), cudaMemcpyDeviceToHost);
-        cudaMemcpy(cluster_sizes.data(), d_cluster_sizes, k * sizeof(int), cudaMemcpyDeviceToHost);
+        CUDA_CHECK_ERROR(cudaMemcpy(new_centroids.data(), d_centroids, k * n * sizeof(float), cudaMemcpyDeviceToHost));
+        CUDA_CHECK_ERROR(cudaMemcpy(cluster_sizes.data(), d_cluster_sizes, k * sizeof(int), cudaMemcpyDeviceToHost));
 
         for (int cluster = 0; cluster < k; ++cluster) {
             if (cluster_sizes[cluster] > 0) {
@@ -220,7 +257,7 @@ int main(int argc, char** argv) {
     }
 
     vector<int> cluster_assignments(N);
-    cudaMemcpy(cluster_assignments.data(), d_cluster_assignments, N * sizeof(int), cudaMemcpyDeviceToHost);
+    CUDA_CHECK_ERROR(cudaMemcpy(cluster_assignments.data(), d_cluster_assignments, N * sizeof(int), cudaMemcpyDeviceToHost));
 
     // Write output file
     ofstream outfile(output_file);
