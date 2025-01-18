@@ -12,8 +12,9 @@ This project implements the k-means clustering algorithm using both CPU and GPU.
 1. [Theory](#theory)
 2. [Implementation Details](#implementation-details)
 3. [Project Structure](#project-structure)
-4. [Usage](#usage)
-5. [References](#references)
+4. [Results](#results)
+5. [Usage](#usage)
+6. [References](#references)
 
 ---
 
@@ -75,17 +76,22 @@ The GPU implementation is designed for efficiency:
 ### **Project Structure**
 ```
 project/
-├── bin/                  # Compiled executables
-├── data/                 # Input and generated datasets
-├── include/              # Header files
-├── src/                  # Source files
-│   ├── generate_input.cu # Generates random data points
-│   ├── kmeans_gpu.cu     # GPU-based k-means implementation
-│   ├── kmeans_cpu.cpp    # CPU-based k-means implementation
-├── output/               # Output files for cluster assignments
-├── Makefile              # Build instructions
-├── README.md             # Project documentation
-└── run.sh                # Script to run CPU and GPU implementations
+├── bin/                    # Compiled executables
+├── data/                   # Input and generated datasets
+├── include/                # Header files
+├── src/                    # Source files
+│   ├── generate_input.cu   # Generates random data points
+│   ├── kmeans_gpu.cu       # GPU-based k-means implementation
+│   ├── kmeans_cpu.cpp      # CPU-based k-means implementation
+├── results/                # Performance metrics and visualizations
+├── scripts/                # Helper scripts
+|   ├── bench.sh            # Benchmarking script
+|   ├── visualize_bench.py  # Performance visualization script
+|   ├── visualize_3d.py     # 3D visualization script for clustering with 3 dimensions
+├── output/                 # Output files for cluster assignments
+├── Makefile                # Build instructions
+├── README.md               # Project documentation
+└── run.sh                  # Script to run CPU and GPU implementations
 ```
 
 ---
