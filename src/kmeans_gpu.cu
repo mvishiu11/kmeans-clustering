@@ -10,7 +10,52 @@
 using namespace std;
 
 /**
+ * @brief CUDA kernel template to assign points to the nearest cluster.
+ *
+ * This kernel is templated on the dimensionality of the points. It computes the
+ * Euclidean distance between each point and each cluster centroid, and assigns
+ * the point to the cluster with the nearest centroid.
+ *
+ * @param points Array of points.
+ * @param centroids Array of centroids.
+ * @param cluster_assignments Output array for cluster assignments.
+ * @param N Number of points.
+ * @param k Number of clusters.
+ */
+ template <int n>
+ __global__ void assign_clusters_template(const float* points, float* centroids, int* cluster_assignments, int N, int k) {
+     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+ 
+     if (idx < N) {
+         float min_distance = FLT_MAX;
+         int best_cluster = -1;
+ 
+         for (int cluster = 0; cluster < k; ++cluster) {
+             float distance = 0.0f;
+ 
+             #pragma unroll
+             for (int dim = 0; dim < n; ++dim) {
+                 float diff = points[idx * n + dim] - centroids[cluster * n + dim];
+                 distance += diff * diff;
+             }
+ 
+             if (distance < min_distance) {
+                 min_distance = distance;
+                 best_cluster = cluster;
+             }
+         }
+ 
+         cluster_assignments[idx] = best_cluster;
+     }
+ } 
+
+ /**
  * CUDA kernel to assign points to the nearest cluster.
+ *
+ * This kernel is a fallback for the templated kernel above, and is used when the
+ * dimensionality of the points is not 2 or 3. It computes the Euclidean distance
+ * between each point and each cluster centroid, and assigns the point to the cluster
+ * with the nearest centroid.
  *
  * @param points Array of points.
  * @param centroids Array of centroids.
@@ -19,7 +64,7 @@ using namespace std;
  * @param n Dimensionality of each point.
  * @param k Number of clusters.
  */
-__global__ void assign_clusters(const float* points, float* centroids, int* cluster_assignments, int N, int n, int k) {
+ __global__ void assign_clusters_fallback(const float* points, const float* centroids, int* cluster_assignments, int N, int n, int k) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < N) {
@@ -146,7 +191,13 @@ int main(int argc, char** argv) {
 
         int threads = 1024;
         int blocks = (N + threads - 1) / threads;
-        assign_clusters<<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, n, k);
+        if (n == 2) {
+            assign_clusters_template<2><<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, k);
+        } else if (n == 3) {
+            assign_clusters_template<3><<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, k);
+        } else {
+            assign_clusters_fallback<<<blocks, threads>>>(d_points, d_centroids, d_cluster_assignments, N, n, k);
+        }        
 
         cudaMemset(d_centroids, 0, k * n * sizeof(float));
         cudaMemset(d_cluster_sizes, 0, k * sizeof(int));
